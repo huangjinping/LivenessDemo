@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Liveness Detection Demo</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="container">
+        <h1>Liveness Check</h1>
+        <div class="video-container">
+          <video id="video" width="640" height="480" autoplay muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <div class="controls">
+          <p id="status">Loading models...</p>
+          <div id="instruction" class="instruction">Wait for initialization...</div>
+          <div class="progress-bar">
+            <div id="progress" class="progress"></div>
+          </div>
+          <ul id="checklist">
+            <li id="task-blink" class="pending">1. Blink Eyes (眨眼)</li>
+            <li id="task-mouth" class="pending">2. Open Mouth (张嘴)</li>
+            <li id="task-shake" class="pending">3. Shake Head (摇头)</li>
+          </ul>
+          <button id="restart-btn" style="display: none;">Restart</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
