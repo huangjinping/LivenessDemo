@@ -67,7 +67,8 @@ async function init() {
         // 并行加载所需的 AI 模型
         await Promise.all([// 加载微型人脸检测器模型（轻量级，速度快）
             faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_PATH), // 加载 68 点面部特征点检测模型（用于识别眼、嘴、鼻等位置）
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH), // faceapi.nets.faceExpressionNet.loadFromUri(MODELS_PATH) // 表情识别模型（本项目暂不需要）
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH),
+            // faceapi.nets.faceExpressionNet.loadFromUri(MODELS_PATH) // 表情识别模型（本项目暂不需要）
         ]);
 
         // 更新状态提示为“模型加载完毕，正在启动摄像头...”
@@ -116,15 +117,6 @@ async function startVideo() {
 function onVideoPlay() {
     // 获取视频的实际显示尺寸
     const displaySize = {width: video.videoWidth, height: video.videoHeight};
-    
-    // 动态调整容器比例，适配不同设备的摄像头分辨率（如 4:3 或 16:9）
-    // 防止 object-fit: cover 裁剪导致的人脸框错位
-    const videoContainer = document.querySelector('.video-container');
-    if (videoContainer && video.videoWidth && video.videoHeight) {
-        const ratio = video.videoWidth / video.videoHeight;
-        videoContainer.style.aspectRatio = `${ratio}`;
-    }
-
     // 调整 canvas 的尺寸以匹配视频尺寸
     faceapi.matchDimensions(canvas, displaySize);
 
@@ -153,7 +145,7 @@ function onVideoPlay() {
         // 清除上一帧的绘制内容
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         // 在 canvas 上绘制检测到的人脸框（可选）
-        faceapi.draw.drawDetections(canvas, resizedDetections);
+        // faceapi.draw.drawDetections(canvas, resizedDetections);
         // 在 canvas 上绘制面部 68 个特征点（可选，当前被注释掉）
         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
 
@@ -284,10 +276,7 @@ function onCompleted() {
 
 function uploadFace(blob) {
     const imgBestFace = document.getElementById('img_BestFace');
-    if (imgBestFace) {
-        imgBestFace.src = URL.createObjectURL(blob);
-        imgBestFace.style.display = 'block'; // 确保显示
-    }
+    imgBestFace.src = blob;
 }
 
 // 捕获最佳人脸的逻辑
