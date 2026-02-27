@@ -367,6 +367,7 @@ function processLiveness(landmarks) {
         }
     }
 
+
     // 2. 张嘴检测逻辑
     else if (state === 'MOUTH') {
         // 获取嘴部特征点
