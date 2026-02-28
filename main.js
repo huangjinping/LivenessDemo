@@ -58,6 +58,14 @@ const restartBtn = document.getElementById('restart-btn');
 
 // --- 初始化流程 ---
 
+const queue = [{
+    state: "BLINK", title: "Please Blink Your Eyes (请眨眼)", detectionType: "1"
+}, {
+    state: "MOUTH", title: "Please Open Your Mouth (请张嘴)", detectionType: "2"
+}, {
+    state: "SHAKE", title: "Please Shake Your Head (请摇头)", detectionType: "3"
+}];
+
 // 初始化函数，负责加载模型和启动摄像头
 async function init() {
     try {
@@ -67,8 +75,7 @@ async function init() {
         // 并行加载所需的 AI 模型
         await Promise.all([// 加载微型人脸检测器模型（轻量级，速度快）
             faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_PATH), // 加载 68 点面部特征点检测模型（用于识别眼、嘴、鼻等位置）
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH),
-            // faceapi.nets.faceExpressionNet.loadFromUri(MODELS_PATH) // 表情识别模型（本项目暂不需要）
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH), // faceapi.nets.faceExpressionNet.loadFromUri(MODELS_PATH) // 表情识别模型（本项目暂不需要）
         ]);
 
         // 更新状态提示为“模型加载完毕，正在启动摄像头...”
@@ -145,7 +152,7 @@ function onVideoPlay() {
         // 清除上一帧的绘制内容
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         // 在 canvas 上绘制检测到的人脸框（可选）
-        // faceapi.draw.drawDetections(canvas, resizedDetections);
+        faceapi.draw.drawDetections(canvas, resizedDetections);
         // 在 canvas 上绘制面部 68 个特征点（可选，当前被注释掉）
         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
 
