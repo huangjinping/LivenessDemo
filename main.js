@@ -58,14 +58,6 @@ const restartBtn = document.getElementById('restart-btn');
 
 // --- 初始化流程 ---
 
-const queue = [{
-    state: "BLINK", title: "Please Blink Your Eyes (请眨眼)", detectionType: "1"
-}, {
-    state: "MOUTH", title: "Please Open Your Mouth (请张嘴)", detectionType: "2"
-}, {
-    state: "SHAKE", title: "Please Shake Your Head (请摇头)", detectionType: "3"
-}];
-
 // 初始化函数，负责加载模型和启动摄像头
 async function init() {
     try {
@@ -124,6 +116,15 @@ async function startVideo() {
 function onVideoPlay() {
     // 获取视频的实际显示尺寸
     const displaySize = {width: video.videoWidth, height: video.videoHeight};
+
+    // 动态调整容器比例，适配不同设备的摄像头分辨率（如 4:3 或 16:9）
+    // 防止 object-fit: cover 裁剪导致的人脸框错位
+    const videoContainer = document.querySelector('.video-container');
+    if (videoContainer && video.videoWidth && video.videoHeight) {
+        const ratio = video.videoWidth / video.videoHeight;
+        videoContainer.style.aspectRatio = `${ratio}`;
+    }
+
     // 调整 canvas 的尺寸以匹配视频尺寸
     faceapi.matchDimensions(canvas, displaySize);
 
@@ -159,8 +160,8 @@ function onVideoPlay() {
         // 如果检测到至少一张人脸
         if (detections.length > 0) {
             const face = detections[0];
-            // 尝试捕获最佳人脸（在非摇头状态下，且非加载状态）
-            if (state !== 'SHAKE' && state !== 'COMPLETED' && state !== 'LOADING') {
+            // 尝试捕获最佳人脸（只要在检测状态且尚未完成）
+            if (state === 'LIVENESS_CHECK') {
                 captureBestFace(face);
             }
 
@@ -179,8 +180,8 @@ function onVideoPlay() {
 
 // 开始活体检测流程函数
 function startLivenessTest() {
-    // 设置初始检测状态为“眨眼检测”
-    state = 'BLINK';
+    // 设置初始检测状态为“LIVENESS_CHECK”，表示等待任一动作
+    state = 'LIVENESS_CHECK';
     // 重置所有计数器和指标
     resetMetrics();
     // 更新 UI 显示
@@ -200,49 +201,33 @@ function resetMetrics() {
 }
 
 // 更新 UI 界面函数
-function updateUI() {
+function updateUI(completedAction) {
     // 重置所有任务列表项的样式
     Object.values(checklist).forEach(el => {
-        // 移除 active 和 completed 类
         el.classList.remove('active', 'completed');
-        // 添加 pending 类（表示待处理）
         el.classList.add('pending');
     });
 
-    // 根据当前状态更新特定的 UI
-    if (state === 'BLINK') {
-        // 设置提示语：请眨眼
-        instructionEl.innerText = 'Please Blink Your Eyes (请眨眼)';
-        // 移除 blink 任务的 pending 类
-        checklist.blink.classList.remove('pending');
-        // 添加 blink 任务的 active 类（表示当前正在进行）
-        checklist.blink.classList.add('active');
-    } else if (state === 'MOUTH') {
-        // 眨眼任务已完成，标记为 completed
-        checklist.blink.classList.remove('pending');
-        checklist.blink.classList.add('completed');
-        // 设置提示语：请张嘴
-        instructionEl.innerText = 'Please Open Your Mouth (请张嘴)';
-        // 激活 mouth 任务
-        checklist.mouth.classList.remove('pending');
-        checklist.mouth.classList.add('active');
-    } else if (state === 'SHAKE') {
-        // 眨眼和张嘴任务都已完成
-        checklist.blink.classList.remove('pending');
-        checklist.blink.classList.add('completed');
-        checklist.mouth.classList.remove('pending');
-        checklist.mouth.classList.add('completed');
-        // 设置提示语：请摇头
-        instructionEl.innerText = 'Please Shake Your Head (请摇头)';
-        // 激活 shake 任务
-        checklist.shake.classList.remove('pending');
-        checklist.shake.classList.add('active');
-    } else if (state === 'COMPLETED') {
-        // 所有任务都标记为 completed
+    if (state === 'LIVENESS_CHECK') {
+        // 设置提示语：请执行任一动作
+        instructionEl.innerText = 'Blink, Open Mouth, or Shake Head (请完成任一动作)';
+        // 将所有任务标记为 active，表示都在等待中
         Object.values(checklist).forEach(el => {
-            el.classList.remove('pending', 'active');
-            el.classList.add('completed');
+            el.classList.remove('pending');
+            el.classList.add('active');
         });
+    } else if (state === 'COMPLETED') {
+        // 将所有任务标记为 pending (未完成)
+        Object.values(checklist).forEach(el => {
+            el.classList.remove('active');
+            el.classList.add('pending');
+        });
+        // 高亮显示已完成的动作
+        if (completedAction && checklist[completedAction]) {
+            checklist[completedAction].classList.remove('pending', 'active');
+            checklist[completedAction].classList.add('completed');
+        }
+        
         // 设置提示语：验证通过
         instructionEl.innerText = 'Verification Success! (验证通过)';
         // 更新状态栏文本
@@ -283,7 +268,10 @@ function onCompleted() {
 
 function uploadFace(blob) {
     const imgBestFace = document.getElementById('img_BestFace');
-    imgBestFace.src = blob;
+    if (imgBestFace) {
+        imgBestFace.src = URL.createObjectURL(blob);
+        imgBestFace.style.display = 'block'; // 确保显示
+    }
 }
 
 // 捕获最佳人脸的逻辑
@@ -329,123 +317,74 @@ function captureBestFace(detection) {
 
 // 核心活体检测处理函数
 function processLiveness(landmarks) {
-    // 如果流程已完成，直接返回
-    if (state === 'COMPLETED') return;
+    // 如果流程不是在等待检测，或者已经完成，则直接返回
+    if (state !== 'LIVENESS_CHECK') return;
 
-    // 1. 眨眼检测逻辑
-    if (state === 'BLINK') {
-        // 获取左眼特征点
-        const leftEye = landmarks.getLeftEye();
-        // 获取右眼特征点
-        const rightEye = landmarks.getRightEye();
-        // 计算左眼纵横比 (EAR)
-        const leftEAR = getEAR(leftEye);
-        // 计算右眼纵横比 (EAR)
-        const rightEAR = getEAR(rightEye);
-        // 计算双眼平均 EAR
-        const avgEAR = (leftEAR + rightEAR) / 2;
+    // --- 1. 并行检测：眨眼 ---
+    const leftEye = landmarks.getLeftEye();
+    const rightEye = landmarks.getRightEye();
+    const avgEAR = (getEAR(leftEye) + getEAR(rightEye)) / 2;
 
-        // 简单的眨眼状态机：睁眼 -> 闭眼 -> 睁眼
-        // 这里我们通过轮询检测闭眼的帧数
-        // 更佳的实现方式是检测状态跃迁
-
-        // 简单逻辑：如果 EAR 小于阈值，认为此刻是闭眼状态
-        if (avgEAR < BLINK_THRESHOLD) {
-            // 闭眼帧数计数加一
-            blinkCounter++;
-            // 显示闭眼状态和 EAR 值
-            statusEl.innerText = `Eyes Closed: ${blinkCounter} (EAR: ${avgEAR.toFixed(2)})`;
-        } else {
-            // 如果当前是睁眼，且之前累积了一定的闭眼帧数（>=1）
-            if (blinkCounter >= 1) { // 至少闭眼了一帧
-                // 判定为有效眨眼
-                console.log('Blink detected!');
-                // 状态流转到 'MOUTH'
-                state = 'MOUTH';
-                // 更新 UI
-                updateUI();
-            }
-            // 重置眨眼计数
-            blinkCounter = 0;
-            // 如果仍处于 BLINK 状态（未完成眨眼），显示睁眼状态
-            if (state === 'BLINK') {
-                statusEl.innerText = `Eyes Open (EAR: ${avgEAR.toFixed(2)})`;
+    if (avgEAR < BLINK_THRESHOLD) {
+        blinkCounter++;
+    } else {
+        if (blinkCounter >= 1) { // 检测到一次完整的“闭眼 -> 睁眼”
+            if (bestFace.blob) {
+                console.log('Blink detected and best face captured!');
+                state = 'COMPLETED';
+                updateUI('blink'); // 传入完成的动作
+                return; 
+            } else {
+                statusEl.innerText = 'Blink detected, looking for best frontal face...';
             }
         }
+        blinkCounter = 0; 
     }
 
-
-    // 2. 张嘴检测逻辑
-    else if (state === 'MOUTH') {
-        // 获取嘴部特征点
-        const mouth = landmarks.getMouth();
-        // 计算嘴部纵横比 (MAR)
-        const mar = getMAR(mouth);
-
-        // 如果 MAR 大于阈值，认为张嘴
-        if (mar > MOUTH_OPEN_THRESHOLD) {
-            // 张嘴帧数计数加一
-            mouthOpenCounter++;
-            // 显示张嘴状态和 MAR 值
-            statusEl.innerText = `Mouth Open: ${mouthOpenCounter} (MAR: ${mar.toFixed(2)})`;
-        } else {
-            // 如果当前闭嘴，且之前保持张嘴超过 2 帧
-            if (mouthOpenCounter > 2) { // 保持张嘴一段时间
-                // 判定为有效张嘴
-                console.log('Mouth open detected!');
-                // 状态流转到 'SHAKE'
-                state = 'SHAKE';
-                // 更新 UI
-                updateUI();
-            }
-            // 重置张嘴计数
-            mouthOpenCounter = 0;
-            // 如果仍处于 MOUTH 状态，显示闭嘴状态
-            if (state === 'MOUTH') {
-                statusEl.innerText = `Mouth Closed (MAR: ${mar.toFixed(2)})`;
+    // --- 2. 并行检测：张嘴 ---
+    const mouth = landmarks.getMouth();
+    const mar = getMAR(mouth);
+    if (mar > MOUTH_OPEN_THRESHOLD) {
+        mouthOpenCounter++;
+    } else {
+        if (mouthOpenCounter > 2) { // 张嘴持续了一小段时间
+            if (bestFace.blob) {
+                console.log('Mouth open detected and best face captured!');
+                state = 'COMPLETED';
+                updateUI('mouth');
+                return;
+            } else {
+                statusEl.innerText = 'Mouth open detected, looking for best frontal face...';
             }
         }
+        mouthOpenCounter = 0;
     }
 
-    // 3. 摇头检测逻辑
-    else if (state === 'SHAKE') {
-        // 获取鼻子特征点
-        const nose = landmarks.getNose();
-        // 获取鼻尖点（索引 3，近似鼻尖）
-        const noseTip = nose[3];
-        // 获取下颚轮廓，用于计算脸宽，实现尺度不变性
-        const jaw = landmarks.getJawOutline();
-        // 脸部最左侧 X 坐标（索引 0）
-        const faceLeft = jaw[0].x;
-        // 脸部最右侧 X 坐标（索引 16）
-        const faceRight = jaw[16].x;
-        // 计算脸部宽度
-        const faceWidth = faceRight - faceLeft;
+    // --- 3. 并行检测：摇头 ---
+    const nose = landmarks.getNose();
+    const noseTip = nose[3];
+    const jaw = landmarks.getJawOutline();
+    const faceLeft = jaw[0].x;
+    const faceRight = jaw[16].x;
+    const faceWidth = faceRight - faceLeft;
+    const noseRelX = (noseTip.x - faceLeft) / faceWidth;
 
-        // 计算鼻子相对脸部宽度的水平位置 (0.0 到 1.0)
-        const noseRelX = (noseTip.x - faceLeft) / faceWidth;
+    if (noseRelX < 0.4) { // 向左看
+        headShakeData.left = Date.now();
+    }
+    if (noseRelX > 0.6) { // 向右看
+        headShakeData.right = Date.now();
+    }
 
-        // 正脸时鼻子大约在 0.5
-        // 向左转头：鼻子向左移动（比例减小，例如 < 0.4）
-        // 向右转头：鼻子向右移动（比例增加，例如 > 0.6）
-
-        // 检测向左转头
-        if (noseRelX < 0.4) {
-            headShakeData.left = Date.now();
-        }
-        // 检测向右转头
-        if (noseRelX > 0.6) {
-            headShakeData.right = Date.now();
-        }
-
-        // 如果在短时间内（2秒内）检测到了向左和向右的动作
-        if (headShakeData.left && headShakeData.right && Math.abs(headShakeData.left - headShakeData.right) < 2000) { // Shake within 2 seconds
-            // 判定为有效摇头
-            console.log('Shake detected!');
-            // 状态流转到 'COMPLETED'
+    // 如果在短时间内（2秒内）检测到了向左和向右的动作
+    if (headShakeData.left && headShakeData.right && Math.abs(headShakeData.left - headShakeData.right) < 2000) {
+        if (bestFace.blob) {
+            console.log('Shake detected and best face captured!');
             state = 'COMPLETED';
-            // 更新 UI
-            updateUI();
+            updateUI('shake');
+            return;
+        } else {
+            statusEl.innerText = 'Shake detected, looking for best frontal face...';
         }
     }
 }
