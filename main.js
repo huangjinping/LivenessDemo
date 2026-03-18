@@ -1,5 +1,7 @@
 // 导入 face-api.js 库的所有导出成员作为 faceapi 对象
 import * as faceapi from 'face-api.js';
+// 导入 jQuery
+import $ from 'jquery';
 
 // --- 配置项 ---
 // 模型文件的存放路径
@@ -19,6 +21,8 @@ let videoStream = null;
 // 用于存储检测循环的 setInterval ID，以便后续清除
 let detectionLoopId = null;
 
+
+let isStartLiveness = false;
 // --- 指标追踪 ---
 // 眨眼计数器，记录闭眼的帧数或次数
 let blinkCounter = 0;
@@ -38,46 +42,33 @@ let bestFace = {
 };
 
 // --- DOM 元素引用 ---
-// 获取视频元素，用于显示摄像头画面
 const video = document.getElementById('video');
-// 获取 canvas 元素，用于绘制面部识别结果
 const canvas = document.getElementById('overlay');
-// 获取状态显示元素，用于展示当前检测状态文本
 const statusEl = document.getElementById('status');
-// 获取指令提示元素，用于告诉用户下一步做什么
 const instructionEl = document.getElementById('instruction');
-// 获取任务清单元素对象
 const checklist = {
-    // 眨眼任务的 DOM 元素
-    blink: document.getElementById('task-blink'), // 张嘴任务的 DOM 元素
-    mouth: document.getElementById('task-mouth'), // 摇头任务的 DOM 元素
+    blink: document.getElementById('task-blink'),
+    mouth: document.getElementById('task-mouth'),
     shake: document.getElementById('task-shake')
 };
-// 获取重新开始按钮元素
 const restartBtn = document.getElementById('restart-btn');
+
+// 新增的 DOM 元素引用
+const preCheckUI = document.getElementById('pre-check-ui');
+const livenessControls = document.getElementById('liveness-controls');
+const startLivenessBtn = document.getElementById('start-liveness-btn');
+const mainTitle = document.getElementById('main-title');
 
 // --- 初始化流程 ---
 
 // 初始化函数，负责加载模型和启动摄像头
 async function init() {
+    // 此函数现在由按钮点击触发，主要负责启动摄像头和检测
+    // 模型加载已移至页面加载时
     try {
-        // 更新状态提示为“正在加载模型...”
-        statusEl.innerText = 'Loading models...';
-
-        // 并行加载所需的 AI 模型
-        await Promise.all([// 加载微型人脸检测器模型（轻量级，速度快）
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_PATH), // 加载 68 点面部特征点检测模型（用于识别眼、嘴、鼻等位置）
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH), // faceapi.nets.faceExpressionNet.loadFromUri(MODELS_PATH) // 表情识别模型（本项目暂不需要）
-        ]);
-
-        // 更新状态提示为“模型加载完毕，正在启动摄像头...”
-        statusEl.innerText = 'Models loaded. Starting camera...';
-        // 调用启动摄像头函数
         await startVideo();
     } catch (err) {
-        // 捕获初始化过程中的错误并打印到控制台
-        console.error('Initialization error:', err);
-        // 在界面上显示错误信息
+        console.error('Error starting video and detection:', err);
         statusEl.innerText = 'Error: ' + err.message;
     }
 }
@@ -136,7 +127,7 @@ function onVideoPlay() {
     // 设置定时器，每 50 毫秒（20 FPS）执行一次检测循环
     detectionLoopId = setInterval(async () => {
         // 如果视频暂停或结束，则跳过本次检测
-        if (video.paused || video.ended) return;
+        if (video.paused || video.ended || !isStartLiveness) return;
 
         // 检测所有人脸
         // 使用 TinyFaceDetectorOptions 选项（配合加载的模型）
@@ -227,7 +218,7 @@ function updateUI(completedAction) {
             checklist[completedAction].classList.remove('pending', 'active');
             checklist[completedAction].classList.add('completed');
         }
-        
+
         // 设置提示语：验证通过
         instructionEl.innerText = 'Verification Success! (验证通过)';
         // 更新状态栏文本
@@ -272,6 +263,29 @@ function uploadFace(blob) {
         imgBestFace.src = URL.createObjectURL(blob);
         imgBestFace.style.display = 'block'; // 确保显示
     }
+
+    // 使用 jQuery 上传到 uploadAppImage 接口
+    const formData = new FormData();
+    // 将 blob 添加到 FormData 中，文件名为 best_face.jpg
+    formData.append('file', blob, 'best_face.jpg');
+
+    console.log("正在通过 jQuery 上传最佳人脸...");
+    statusEl.innerText = 'Uploading best face...';
+
+    $.ajax({
+        url: '/uploadAppImage', // 目标接口地址
+        type: 'POST', data: formData, processData: false, // 告诉 jQuery 不要处理发送的数据
+        contentType: false, // 告诉 jQuery 不要设置 Content-Type 请求头
+        success: function (response) {
+            console.log('上传成功:', response);
+            statusEl.innerText = 'Upload success!';
+            alert("人脸照片已成功上传到后台。");
+        }, error: function (xhr, status, error) {
+            console.error('上传失败:', error);
+            statusEl.innerText = 'Upload failed: ' + error;
+            alert("上传失败，请检查网络或后台接口。");
+        }
+    });
 }
 
 // 捕获最佳人脸的逻辑
@@ -333,12 +347,12 @@ function processLiveness(landmarks) {
                 console.log('Blink detected and best face captured!');
                 state = 'COMPLETED';
                 updateUI('blink'); // 传入完成的动作
-                return; 
+                return;
             } else {
                 statusEl.innerText = 'Blink detected, looking for best frontal face...';
             }
         }
-        blinkCounter = 0; 
+        blinkCounter = 0;
     }
 
     // --- 2. 并行检测：张嘴 ---
@@ -444,12 +458,42 @@ function dist(p1, p2) {
 }
 
 // 绑定重新开始按钮的点击事件
-restartBtn.addEventListener('click', () => {
-    // 重新开始活体检测流程
-    startLivenessTest();
-    // 隐藏重新开始按钮
-    restartBtn.style.display = 'none';
+if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+        // 重新开始活体检测流程
+        startLivenessTest();
+        // 隐藏重新开始按钮
+        restartBtn.style.display = 'none';
+    });
+}
+
+// 程序入口：页面加载后立即加载模型并启动摄像头
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        isStartLiveness = false;
+        startLivenessBtn.disabled = true;
+        startLivenessBtn.innerText = '正在加载模型...';
+
+        await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_PATH), faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH),]);
+        startLivenessBtn.disabled = false;
+        startLivenessBtn.innerText = '立即开始';
+        await startVideo(); // 立即启动摄像头
+
+    } catch (err) {
+        console.error('Initialization error:', err);
+        mainTitle.innerText = 'Error!';
+        startLivenessBtn.innerText = '初始化失败';
+        startLivenessBtn.disabled = true;
+    }
 });
 
-// 程序入口：调用初始化函数
-init();
+// 绑定“立即开始”按钮的点击事件
+startLivenessBtn.addEventListener('click', () => {
+    // 隐藏准备界面的UI，显示检测控制UI
+    preCheckUI.style.display = 'none';
+    livenessControls.style.display = 'block';
+    mainTitle.innerText = 'Liveness Check'; // 切换标题
+    isStartLiveness = true;
+    // 正式开始活体检测逻辑
+    startLivenessTest();
+});

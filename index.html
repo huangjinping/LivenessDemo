@@ -9,34 +9,53 @@
 </head>
 <body>
 <div id="app">
-    <div class="container">
-        <h1>Liveness Check</h1>
+    <div class="container" id="liveness-container">
+        <!-- 标题 -->
+        <h1 id="main-title">Face the screen<br>Follow the prompts</h1>
+
+        <!-- 视频容器 (圆形遮罩) -->
         <div class="video-container">
             <video id="video" width="640" height="480" autoplay muted playsinline></video>
             <canvas id="overlay"></canvas>
         </div>
-        <div class="controls">
+
+        <!-- 准备阶段的 UI -->
+        <div id="pre-check-ui">
+            <div class="pre-check-banner">Please pay attention when testing</div>
+            <div class="pre-check-tips">
+                <div class="tip">
+                    <div class="tip-icon correct"></div>
+                    <div class="tip-text">Need bright light</div>
+                </div>
+                <div class="tip">
+                    <div class="tip-icon incorrect"></div>
+                    <div class="tip-text">Do not cover your face</div>
+                </div>
+                <div class="tip">
+                    <div class="tip-icon incorrect"></div>
+                    <div class="tip-text">No hat</div>
+                </div>
+                <div class="tip">
+                    <div class="tip-icon incorrect"></div>
+                    <div class="tip-text">Do not move too fast</div>
+                </div>
+            </div>
+            <button id="start-liveness-btn" disabled>正在加载模型...</button>
+        </div>
+
+        <!-- 检测阶段的 UI (默认隐藏) -->
+        <div class="controls" id="liveness-controls" style="display: none;">
             <p id="status">Loading models...</p>
             <div id="instruction" class="instruction">Wait for initialization...</div>
-            <div class="progress-bar">
-                <div id="progress" class="progress"></div>
-            </div>
-            <ul id="checklist" style="display: none">
-                <li id="task-blink" class="pending">1. Blink Eyes (眨眼)</li>
-                <li id="task-mouth" class="pending">2. Open Mouth (张嘴)</li>
-                <li id="task-shake" class="pending">3. Shake Head (摇头)</li>
+            <ul id="checklist">
+                <li id="task-blink" class="pending">Blink Eyes</li>
+                <li id="task-mouth" class="pending">Open Mouth</li>
+                <li id="task-shake" class="pending">Shake Head</li>
             </ul>
             <button id="restart-btn" style="display: none;">Restart</button>
         </div>
-
-<!--        <div style="text-align: center;background-color:green;width: 100%;height: 500px">-->
-<!--            <img id="img_BestFace" style="display: block;width: 640px;height: 480px" src="" alt="">-->
-<!--        </div>-->
     </div>
-
-
 </div>
-
 
 <script type="module" src="./main.js"></script>
 </body>
