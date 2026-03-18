@@ -17,12 +17,26 @@
         <div class="video-container">
             <video id="video" width="640" height="480" autoplay muted playsinline></video>
             <canvas id="overlay"></canvas>
+            <div id="countdown-overlay" style="display: none;">
+                <span id="countdown-number">5</span><span class="countdown-unit">s</span>
+            </div>
+            <div id="success-badge" style="display: none;">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M20 6L9 17l-5-5" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div id="failure-badge" style="display: none;">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M18 6L6 18" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
+                    <path d="M6 6L18 18" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
+                </svg>
+            </div>
         </div>
 
         <!-- 准备阶段的 UI -->
         <div id="pre-check-ui">
-            <div class="pre-check-banner">Please pay attention when testing</div>
-            <div class="pre-check-tips">
+            <div class="pre-check-banner" id="pre-check-banner">Please pay attention when testing</div>
+            <div class="pre-check-tips" id="pre-check-tips">
                 <div class="tip">
                     <div class="tip-icon correct"></div>
                     <div class="tip-text">Need bright light</div>
@@ -45,9 +59,23 @@
 
         <!-- 检测阶段的 UI (默认隐藏) -->
         <div class="controls" id="liveness-controls" style="display: none;">
-            <p id="status">Loading models...</p>
-            <div id="instruction" class="instruction">Wait for initialization...</div>
-            <ul id="checklist">
+            <p id="status" style="display:none;">Loading models...</p>
+            <div class="stepper" id="stepper">
+                <div class="step active" id="step-1">1</div>
+                <div class="step-arrows active" id="step-arrows-1">»»</div>
+                <div class="step" id="step-2">2</div>
+                <div class="step-arrows" id="step-arrows-2">»»</div>
+                <div class="step" id="step-3">3</div>
+            </div>
+            <div id="instruction" class="pre-check-banner liveness-banner">Please open your mouth</div>
+            <div id="success-screen" style="display: none;">
+                <div class="success-title">Successful detection</div>
+            </div>
+            <div id="failure-screen" style="display: none;">
+                <div class="failure-title">Detection failed, please try again</div>
+                <button id="retry-btn" type="button">Try again</button>
+            </div>
+            <ul id="checklist" style="display:none;">
                 <li id="task-blink" class="pending">Blink Eyes</li>
                 <li id="task-mouth" class="pending">Open Mouth</li>
                 <li id="task-shake" class="pending">Shake Head</li>

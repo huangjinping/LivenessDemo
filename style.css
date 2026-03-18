@@ -48,6 +48,11 @@ body {
   margin: 0 auto;
 }
 
+.video-container.failed {
+  border-color: #f44336;
+  background: #fff1f1;
+}
+
 video, canvas {
   position: absolute;
   top: 50%;
@@ -58,6 +63,98 @@ video, canvas {
   width: auto;
   height: auto;
   object-fit: cover;
+}
+
+#countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  font-weight: 800;
+  font-size: 4.5rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+#countdown-number {
+  color: #00bfa5;
+}
+
+.countdown-unit {
+  color: #666;
+  font-size: 2.5rem;
+  margin-left: 0.2rem;
+  font-weight: 700;
+}
+
+#success-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: #00bfa5;
+  border: 6px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#failure-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: #f44336;
+  border: 6px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#success-screen {
+  padding: 10px 0 0;
+}
+
+.success-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #333;
+  margin: 0.5rem 0 0;
+}
+
+#failure-screen {
+  padding: 10px 0 0;
+  width: 100%;
+}
+
+.failure-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #333;
+  margin: 0.5rem 0 1.25rem;
+}
+
+#retry-btn {
+  width: 100%;
+  background-color: #00bfa5;
+  color: white;
+  padding: 16px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.25s;
 }
 
 /* --- 准备阶段 UI --- */
@@ -163,6 +260,47 @@ video, canvas {
   padding: 1rem;
   border-radius: 8px;
   margin-top: 1.5rem;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 1.25rem;
+}
+
+.step {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border: 2px solid #cfd8dc;
+  color: #90a4ae;
+  background: #fff;
+}
+
+.step.active {
+  border-color: #00bfa5;
+  color: #00bfa5;
+}
+
+.step-arrows {
+  font-weight: 900;
+  color: #cfd8dc;
+  letter-spacing: -2px;
+  transform: translateY(-1px);
+}
+
+.step-arrows.active {
+  color: #00bfa5;
+}
+
+.liveness-banner {
+  margin: 0 auto;
 }
 
 .instruction {

@@ -28,6 +28,8 @@ let isStartLiveness = false;
 let blinkCounter = 0;
 // 张嘴计数器，记录张嘴的帧数
 let mouthOpenCounter = 0;
+let headTurnLeftCounter = 0;
+let headTurnRightCounter = 0;
 // 摇头数据，记录摇头动作的时间戳
 let headShakeData = {
     // 向左看的时间戳
@@ -58,6 +60,42 @@ const preCheckUI = document.getElementById('pre-check-ui');
 const livenessControls = document.getElementById('liveness-controls');
 const startLivenessBtn = document.getElementById('start-liveness-btn');
 const mainTitle = document.getElementById('main-title');
+const preCheckBanner = document.getElementById('pre-check-banner');
+const preCheckTips = document.getElementById('pre-check-tips');
+const countdownOverlay = document.getElementById('countdown-overlay');
+const countdownNumber = document.getElementById('countdown-number');
+const step1El = document.getElementById('step-1');
+const step2El = document.getElementById('step-2');
+const step3El = document.getElementById('step-3');
+const stepArrows1El = document.getElementById('step-arrows-1');
+const stepArrows2El = document.getElementById('step-arrows-2');
+const stepperEl = document.getElementById('stepper');
+const successScreenEl = document.getElementById('success-screen');
+const successBadgeEl = document.getElementById('success-badge');
+const failureScreenEl = document.getElementById('failure-screen');
+const failureBadgeEl = document.getElementById('failure-badge');
+const retryBtn = document.getElementById('retry-btn');
+const videoContainerEl = document.querySelector('.video-container');
+
+let countdownIntervalId = null;
+let livenessTimeoutId = null;
+
+function clearLivenessTimeout() {
+    if (livenessTimeoutId) {
+        clearTimeout(livenessTimeoutId);
+        livenessTimeoutId = null;
+    }
+}
+
+function startLivenessTimeout() {
+    clearLivenessTimeout();
+    livenessTimeoutId = setTimeout(() => {
+        if (state === 'COMPLETED' || state === 'FAILED') return;
+        state = 'FAILED';
+        isStartLiveness = false;
+        updateUI();
+    }, 15000);
+}
 
 // --- 初始化流程 ---
 
@@ -121,8 +159,6 @@ function onVideoPlay() {
 
     // 更新状态为 'READY'
     state = 'READY';
-    // 开始活体检测流程
-    startLivenessTest();
 
     // 设置定时器，每 50 毫秒（20 FPS）执行一次检测循环
     detectionLoopId = setInterval(async () => {
@@ -151,13 +187,11 @@ function onVideoPlay() {
         // 如果检测到至少一张人脸
         if (detections.length > 0) {
             const face = detections[0];
-            // 尝试捕获最佳人脸（只要在检测状态且尚未完成）
-            if (state === 'LIVENESS_CHECK') {
-                captureBestFace(face);
-            }
 
-            // 处理活体检测逻辑，传入第一张人脸的特征点
-            processLiveness(face.landmarks);
+            if (state === 'MOUTH' || state === 'SHAKE_LEFT' || state === 'SHAKE_RIGHT') {
+                captureBestFace(face);
+                processLiveness(face.landmarks);
+            }
             // 更新状态文本为“检测到人脸”
             statusEl.innerText = 'Face detected';
         } else {
@@ -171,8 +205,8 @@ function onVideoPlay() {
 
 // 开始活体检测流程函数
 function startLivenessTest() {
-    // 设置初始检测状态为“LIVENESS_CHECK”，表示等待任一动作
-    state = 'LIVENESS_CHECK';
+    // 倒计时后进入第一个检测项：张嘴
+    state = 'MOUTH';
     // 重置所有计数器和指标
     resetMetrics();
     // 更新 UI 显示
@@ -185,6 +219,8 @@ function resetMetrics() {
     blinkCounter = 0;
     // 重置张嘴计数
     mouthOpenCounter = 0;
+    headTurnLeftCounter = 0;
+    headTurnRightCounter = 0;
     // 重置摇头数据
     headShakeData = {left: 0, right: 0, lastX: 0};
     // 重置最佳人脸数据
@@ -193,66 +229,77 @@ function resetMetrics() {
 
 // 更新 UI 界面函数
 function updateUI(completedAction) {
-    // 重置所有任务列表项的样式
-    Object.values(checklist).forEach(el => {
-        el.classList.remove('active', 'completed');
-        el.classList.add('pending');
-    });
+    if (step1El) step1El.classList.remove('active');
+    if (step2El) step2El.classList.remove('active');
+    if (step3El) step3El.classList.remove('active');
+    if (stepArrows1El) stepArrows1El.classList.remove('active');
+    if (stepArrows2El) stepArrows2El.classList.remove('active');
+    if (successScreenEl) successScreenEl.style.display = 'none';
+    if (successBadgeEl) successBadgeEl.style.display = 'none';
+    if (failureScreenEl) failureScreenEl.style.display = 'none';
+    if (failureBadgeEl) failureBadgeEl.style.display = 'none';
+    if (videoContainerEl) videoContainerEl.classList.remove('failed');
+    if (stepperEl) stepperEl.style.display = 'flex';
+    if (instructionEl) instructionEl.style.display = 'block';
 
-    if (state === 'LIVENESS_CHECK') {
-        // 设置提示语：请执行任一动作
-        instructionEl.innerText = 'Blink, Open Mouth, or Shake Head (请完成任一动作)';
-        // 将所有任务标记为 active，表示都在等待中
-        Object.values(checklist).forEach(el => {
-            el.classList.remove('pending');
-            el.classList.add('active');
-        });
-    } else if (state === 'COMPLETED') {
-        // 将所有任务标记为 pending (未完成)
-        Object.values(checklist).forEach(el => {
-            el.classList.remove('active');
-            el.classList.add('pending');
-        });
-        // 高亮显示已完成的动作
-        if (completedAction && checklist[completedAction]) {
-            checklist[completedAction].classList.remove('pending', 'active');
-            checklist[completedAction].classList.add('completed');
-        }
+    if (state === 'MOUTH') {
+        if (step1El) step1El.classList.add('active');
+        if (stepArrows1El) stepArrows1El.classList.add('active');
+        instructionEl.innerText = 'Please open your mouth';
+        restartBtn.style.display = 'none';
+        return;
+    }
 
-        // 设置提示语：验证通过
-        instructionEl.innerText = 'Verification Success! (验证通过)';
-        // 更新状态栏文本
+    if (state === 'SHAKE_LEFT') {
+        if (step1El) step1El.classList.add('active');
+        if (step2El) step2El.classList.add('active');
+        if (stepArrows1El) stepArrows1El.classList.add('active');
+        instructionEl.innerText = 'Please turn your head slowly to the left';
+        restartBtn.style.display = 'none';
+        return;
+    }
+
+    if (state === 'SHAKE_RIGHT') {
+        if (step1El) step1El.classList.add('active');
+        if (step2El) step2El.classList.add('active');
+        if (step3El) step3El.classList.add('active');
+        if (stepArrows1El) stepArrows1El.classList.add('active');
+        if (stepArrows2El) stepArrows2El.classList.add('active');
+        instructionEl.innerText = 'Please turn your head slowly to the right';
+        restartBtn.style.display = 'none';
+        return;
+    }
+
+    if (state === 'COMPLETED') {
+        clearLivenessTimeout();
+        if (stepperEl) stepperEl.style.display = 'none';
+        if (instructionEl) instructionEl.style.display = 'none';
+        if (successScreenEl) successScreenEl.style.display = 'block';
+        if (successBadgeEl) successBadgeEl.style.display = 'flex';
         statusEl.innerText = 'Completed';
-        // 显示重新开始按钮
-        restartBtn.style.display = 'inline-block';
+        restartBtn.style.display = 'none';
         onCompleted();
+    }
+
+    if (state === 'FAILED') {
+        clearLivenessTimeout();
+        if (stepperEl) stepperEl.style.display = 'none';
+        if (instructionEl) instructionEl.style.display = 'none';
+        if (failureScreenEl) failureScreenEl.style.display = 'block';
+        if (failureBadgeEl) failureBadgeEl.style.display = 'flex';
+        if (videoContainerEl) videoContainerEl.classList.add('failed');
+        statusEl.innerText = 'Failed';
+        restartBtn.style.display = 'none';
     }
 }
 
 
 function onCompleted() {
     if (bestFace.blob) {
-        console.log("最佳人脸 Blob:", bestFace.blob);
-        // 示例：展示图片
-        const imgUrl = URL.createObjectURL(bestFace.blob);
-        const img = new Image();
-        img.src = imgUrl;
-        img.style.position = 'fixed';
-        img.style.bottom = '10px';
-        img.style.right = '10px';
-        img.style.width = '100px';
-        img.style.border = '2px solid #00ff00';
-        img.title = '最佳抓拍';
-        document.body.appendChild(img);
-
-        // 提示用户
-        statusEl.innerText = 'Completed. Best face captured!';
-        alert("验证完成！已获取最佳人脸照片，准备上传。");
-
-        // TODO: 在这里执行上传逻辑
+        statusEl.innerText = 'Completed. Uploading best face...';
         uploadFace(bestFace.blob);
     } else {
-        alert("验证完成，但未能捕获清晰人脸。");
+        statusEl.innerText = 'Completed, but no best face captured.';
     }
 }
 
@@ -331,74 +378,72 @@ function captureBestFace(detection) {
 
 // 核心活体检测处理函数
 function processLiveness(landmarks) {
-    // 如果流程不是在等待检测，或者已经完成，则直接返回
-    if (state !== 'LIVENESS_CHECK') return;
-
-    // --- 1. 并行检测：眨眼 ---
-    const leftEye = landmarks.getLeftEye();
-    const rightEye = landmarks.getRightEye();
-    const avgEAR = (getEAR(leftEye) + getEAR(rightEye)) / 2;
-
-    if (avgEAR < BLINK_THRESHOLD) {
-        blinkCounter++;
-    } else {
-        if (blinkCounter >= 1) { // 检测到一次完整的“闭眼 -> 睁眼”
-            if (bestFace.blob) {
-                console.log('Blink detected and best face captured!');
-                state = 'COMPLETED';
-                updateUI('blink'); // 传入完成的动作
-                return;
-            } else {
-                statusEl.innerText = 'Blink detected, looking for best frontal face...';
-            }
-        }
-        blinkCounter = 0;
-    }
-
-    // --- 2. 并行检测：张嘴 ---
-    const mouth = landmarks.getMouth();
-    const mar = getMAR(mouth);
-    if (mar > MOUTH_OPEN_THRESHOLD) {
-        mouthOpenCounter++;
-    } else {
-        if (mouthOpenCounter > 2) { // 张嘴持续了一小段时间
-            if (bestFace.blob) {
-                console.log('Mouth open detected and best face captured!');
-                state = 'COMPLETED';
+    if (state === 'MOUTH') {
+        const mouth = landmarks.getMouth();
+        const mar = getMAR(mouth);
+        if (mar > MOUTH_OPEN_THRESHOLD) {
+            mouthOpenCounter++;
+        } else {
+            if (mouthOpenCounter > 2) {
+                state = 'SHAKE_LEFT';
+                mouthOpenCounter = 0;
+                headTurnLeftCounter = 0;
+                headTurnRightCounter = 0;
                 updateUI('mouth');
                 return;
-            } else {
-                statusEl.innerText = 'Mouth open detected, looking for best frontal face...';
             }
+            mouthOpenCounter = 0;
         }
-        mouthOpenCounter = 0;
+        return;
     }
 
-    // --- 3. 并行检测：摇头 ---
-    const nose = landmarks.getNose();
-    const noseTip = nose[3];
-    const jaw = landmarks.getJawOutline();
-    const faceLeft = jaw[0].x;
-    const faceRight = jaw[16].x;
-    const faceWidth = faceRight - faceLeft;
-    const noseRelX = (noseTip.x - faceLeft) / faceWidth;
+    if (state === 'SHAKE_LEFT') {
+        const nose = landmarks.getNose();
+        const noseTip = nose[3];
+        const jaw = landmarks.getJawOutline();
+        const faceLeft = jaw[0].x;
+        const faceRight = jaw[16].x;
+        const faceWidth = faceRight - faceLeft;
+        const noseRelX = (noseTip.x - faceLeft) / faceWidth;
 
-    if (noseRelX < 0.4) { // 向左看
-        headShakeData.left = Date.now();
-    }
-    if (noseRelX > 0.6) { // 向右看
-        headShakeData.right = Date.now();
-    }
+        if (noseRelX < 0.38) {
+            headTurnLeftCounter += 1;
+        } else {
+            headTurnLeftCounter = 0;
+        }
 
-    // 如果在短时间内（2秒内）检测到了向左和向右的动作
-    if (headShakeData.left && headShakeData.right && Math.abs(headShakeData.left - headShakeData.right) < 2000) {
-        if (bestFace.blob) {
-            console.log('Shake detected and best face captured!');
-            state = 'COMPLETED';
+        if (headTurnLeftCounter > 2) {
+            state = 'SHAKE_RIGHT';
+            headTurnLeftCounter = 0;
+            headTurnRightCounter = 0;
             updateUI('shake');
             return;
+        }
+    }
+
+    if (state === 'SHAKE_RIGHT') {
+        const nose = landmarks.getNose();
+        const noseTip = nose[3];
+        const jaw = landmarks.getJawOutline();
+        const faceLeft = jaw[0].x;
+        const faceRight = jaw[16].x;
+        const faceWidth = faceRight - faceLeft;
+        const noseRelX = (noseTip.x - faceLeft) / faceWidth;
+
+        if (noseRelX > 0.62) {
+            headTurnRightCounter += 1;
         } else {
-            statusEl.innerText = 'Shake detected, looking for best frontal face...';
+            headTurnRightCounter = 0;
+        }
+
+        if (headTurnRightCounter > 2) {
+            if (bestFace.blob) {
+                state = 'COMPLETED';
+                isStartLiveness = false;
+                updateUI('shake');
+                return;
+            }
+            statusEl.innerText = 'Head turn detected, looking for best frontal face...';
         }
     }
 }
@@ -489,11 +534,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // 绑定“立即开始”按钮的点击事件
 startLivenessBtn.addEventListener('click', () => {
-    // 隐藏准备界面的UI，显示检测控制UI
-    preCheckUI.style.display = 'none';
-    livenessControls.style.display = 'block';
-    mainTitle.innerText = 'Liveness Check'; // 切换标题
-    isStartLiveness = true;
-    // 正式开始活体检测逻辑
-    startLivenessTest();
+    if (startLivenessBtn.disabled) return;
+
+    startLivenessBtn.disabled = true;
+    startLivenessBtn.innerText = '倒计时中...';
+    if (preCheckTips) preCheckTips.style.display = 'none';
+    if (preCheckBanner) {
+        preCheckBanner.innerText = '请确保人脸在圆圈内，倒计时结束后开始检测';
+    }
+
+    if (countdownOverlay) countdownOverlay.style.display = 'flex';
+    let remaining = 5;
+    if (countdownNumber) countdownNumber.innerText = String(remaining);
+
+    if (countdownIntervalId) clearInterval(countdownIntervalId);
+    countdownIntervalId = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+            clearInterval(countdownIntervalId);
+            countdownIntervalId = null;
+
+            if (countdownOverlay) countdownOverlay.style.display = 'none';
+            if (preCheckUI) preCheckUI.style.display = 'none';
+            if (livenessControls) livenessControls.style.display = 'block';
+            if (mainTitle) mainTitle.innerText = 'Liveness Check';
+
+            isStartLiveness = true;
+            startLivenessTest();
+            startLivenessTimeout();
+            return;
+        }
+        if (countdownNumber) countdownNumber.innerText = String(remaining);
+    }, 1000);
 });
+
+if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+        if (livenessControls) livenessControls.style.display = 'block';
+        if (mainTitle) mainTitle.innerText = 'Liveness Check';
+        isStartLiveness = true;
+        startLivenessTest();
+        startLivenessTimeout();
+    });
+}
