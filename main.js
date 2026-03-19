@@ -95,7 +95,7 @@ function startLivenessTimeout() {
         state = 'FAILED';
         isStartLiveness = false;
         updateUI();
-    }, 15000);
+    }, 60000);
 }
 
 // --- 初始化流程 ---
@@ -108,9 +108,10 @@ async function init() {
         await startVideo();
     } catch (err) {
         console.error('Error starting video and detection:', err);
-        statusEl.innerText = 'Error: ' + err.message;
+        statusEl.innerText = getLocal('errorPrefix') + err.message;
     }
 }
+
 
 // 启动摄像头函数
 async function startVideo() {
@@ -138,7 +139,7 @@ async function startVideo() {
         // 捕获摄像头访问错误（如用户拒绝权限）
         console.error('Camera error:', err);
         // 在界面上显示权限被拒绝或错误信息
-        statusEl.innerText = 'Camera access denied or error: ' + err.message;
+        statusEl.innerText = getLocal('cameraErrorPrefix') + err.message;
     }
 }
 
@@ -194,10 +195,10 @@ function onVideoPlay() {
                 processLiveness(face.landmarks);
             }
             // 更新状态文本为“检测到人脸”
-            statusEl.innerText = 'Face detected';
+            statusEl.innerText = getLocal('faceDetected');
         } else {
             // 如果未检测到人脸，更新状态文本
-            statusEl.innerText = 'No face detected';
+            statusEl.innerText = getLocal('noFaceDetected');
         }
     }, 50); // 设置间隔为 50ms
 }
@@ -247,7 +248,7 @@ function updateUI(completedAction) {
     if (state === 'MOUTH') {
         if (step1El) step1El.classList.add('active');
         if (stepArrows1El) stepArrows1El.classList.add('active');
-        instructionEl.innerText = 'Please open your mouth';
+        instructionEl.innerText = getLocal('instructionMouth');
         restartBtn.style.display = 'none';
         return;
     }
@@ -256,7 +257,7 @@ function updateUI(completedAction) {
         if (step1El) step1El.classList.add('active');
         if (step2El) step2El.classList.add('active');
         if (stepArrows1El) stepArrows1El.classList.add('active');
-        instructionEl.innerText = 'Please turn your head slowly to the left';
+        instructionEl.innerText = getLocal('instructionShakeLeft');
         restartBtn.style.display = 'none';
         return;
     }
@@ -267,7 +268,7 @@ function updateUI(completedAction) {
         if (step3El) step3El.classList.add('active');
         if (stepArrows1El) stepArrows1El.classList.add('active');
         if (stepArrows2El) stepArrows2El.classList.add('active');
-        instructionEl.innerText = 'Please turn your head slowly to the right';
+        instructionEl.innerText = getLocal('instructionShakeRight');
         restartBtn.style.display = 'none';
         return;
     }
@@ -278,7 +279,7 @@ function updateUI(completedAction) {
         if (instructionEl) instructionEl.style.display = 'none';
         if (successScreenEl) successScreenEl.style.display = 'block';
         if (successBadgeEl) successBadgeEl.style.display = 'flex';
-        statusEl.innerText = 'Completed';
+        statusEl.innerText = getLocal('completed');
         restartBtn.style.display = 'none';
         onCompleted();
     }
@@ -290,7 +291,7 @@ function updateUI(completedAction) {
         if (failureScreenEl) failureScreenEl.style.display = 'block';
         if (failureBadgeEl) failureBadgeEl.style.display = 'flex';
         if (videoContainerEl) videoContainerEl.classList.add('failed');
-        statusEl.innerText = 'Failed';
+        statusEl.innerText = getLocal('failed');
         restartBtn.style.display = 'none';
     }
 }
@@ -298,10 +299,10 @@ function updateUI(completedAction) {
 
 function onCompleted() {
     if (bestFace.blob) {
-        statusEl.innerText = 'Completed. Uploading best face...';
+        statusEl.innerText = getLocal('uploadingBestFace');
         uploadFace(bestFace.blob);
     } else {
-        statusEl.innerText = 'Completed, but no best face captured.';
+        statusEl.innerText = getLocal('completedNoBestFace');
     }
 }
 
@@ -319,7 +320,7 @@ function uploadFace(blob) {
     formData.append('file', blob, 'best_face.jpg');
 
     console.log("正在通过 jQuery 上传最佳人脸...");
-    statusEl.innerText = 'Uploading best face...';
+    statusEl.innerText = getLocal('uploadingBestFace');
 
     $.ajax({
         url: '/uploadAppImage', // 目标接口地址
@@ -327,12 +328,12 @@ function uploadFace(blob) {
         contentType: false, // 告诉 jQuery 不要设置 Content-Type 请求头
         success: function (response) {
             console.log('上传成功:', response);
-            statusEl.innerText = 'Upload success!';
-            alert("人脸照片已成功上传到后台。");
+            statusEl.innerText = getLocal('uploadSuccess');
+            alert(getLocal('uploadSuccessAlert'));
         }, error: function (xhr, status, error) {
             console.error('上传失败:', error);
-            statusEl.innerText = 'Upload failed: ' + error;
-            alert("上传失败，请检查网络或后台接口。");
+            statusEl.innerText = getLocal('uploadFailed') + error;
+            alert(getLocal('uploadFailedAlert'));
         }
     });
 }
@@ -453,7 +454,7 @@ function processLiveness(landmarks) {
                 updateUI('shake');
                 return;
             }
-            statusEl.innerText = 'Head turn detected, looking for best frontal face...';
+            statusEl.innerText = getLocal('headTurnNeedBestFace');
         }
     }
 }
@@ -524,20 +525,21 @@ if (restartBtn) {
 
 // 程序入口：页面加载后立即加载模型并启动摄像头
 document.addEventListener('DOMContentLoaded', async () => {
+    applyLocale();
     try {
         isStartLiveness = false;
         startLivenessBtn.disabled = true;
-        startLivenessBtn.innerText = '正在加载模型...';
+        startLivenessBtn.innerText = getLocal('loadingModels');
 
         await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_PATH), faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH),]);
         startLivenessBtn.disabled = false;
-        startLivenessBtn.innerText = '立即开始';
+        startLivenessBtn.innerText = getLocal('startNow');
         await startVideo(); // 立即启动摄像头
 
     } catch (err) {
         console.error('Initialization error:', err);
-        mainTitle.innerText = 'Error!';
-        startLivenessBtn.innerText = '初始化失败';
+        mainTitle.innerText = getLocal('errorTitle');
+        startLivenessBtn.innerText = getLocal('initFailed');
         startLivenessBtn.disabled = true;
     }
 });
@@ -547,10 +549,10 @@ startLivenessBtn.addEventListener('click', () => {
     if (startLivenessBtn.disabled) return;
 
     startLivenessBtn.disabled = true;
-    startLivenessBtn.innerText = '倒计时中...';
+    startLivenessBtn.innerText = getLocal('countdowning');
     if (preCheckTips) preCheckTips.style.display = 'none';
     if (preCheckBanner) {
-        preCheckBanner.innerText = '请确保人脸在圆圈内，倒计时结束后开始检测';
+        preCheckBanner.innerText = getLocal('countdownTip');
     }
 
     if (countdownOverlay) countdownOverlay.style.display = 'flex';
@@ -567,7 +569,7 @@ startLivenessBtn.addEventListener('click', () => {
             if (countdownOverlay) countdownOverlay.style.display = 'none';
             if (preCheckUI) preCheckUI.style.display = 'none';
             if (livenessControls) livenessControls.style.display = 'block';
-            if (mainTitle) mainTitle.innerText = 'Liveness Check';
+            if (mainTitle) mainTitle.innerText = getLocal('livenessCheckTitle');
 
             isStartLiveness = true;
             startLivenessTest();
@@ -578,10 +580,116 @@ startLivenessBtn.addEventListener('click', () => {
     }, 1000);
 });
 
+function getLocal(key) {
+    var china = {
+        appName: '活体识别',
+        mainTitleHtml: '请正对屏幕<br>跟随提示',
+        preCheckBanner: '请在检测过程中保持注意',
+        tipBrightLight: '光线充足',
+        tipNoCover: '不要遮挡面部',
+        tipNoHat: '不要戴帽子',
+        tipNoFast: '不要移动过快',
+        loadingModels: '加载中...',
+        startNow: '立即开始',
+        initFailed: '初始化失败',
+        errorPrefix: '错误：',
+        errorTitle: '错误',
+        countdowning: '倒计时中...',
+        countdownTip: '请确保人脸在圆圈内，倒计时结束后开始检测',
+        livenessCheckTitle: '活体检测',
+        instructionMouth: '请张嘴',
+        instructionShakeLeft: '请缓慢向左转头',
+        instructionShakeRight: '请缓慢向右转头',
+        successTitle: '识别成功',
+        failureTitle: '检测失败，请重试',
+        retryBtn: '重试',
+        restartBtn: '重新开始',
+        faceDetected: '检测到人脸',
+        noFaceDetected: '未检测到人脸',
+        completed: '已完成',
+        failed: '失败',
+        cameraErrorPrefix: '摄像头权限被拒绝或发生错误：',
+        uploadingBestFace: '正在上传最佳人脸...',
+        completedNoBestFace: '已完成，但未捕获到最佳人脸',
+        headTurnNeedBestFace: '已检测到动作，正在等待最佳正脸抓拍...',
+        uploadSuccess: '上传成功',
+        uploadFailed: '上传失败：',
+        uploadSuccessAlert: '人脸照片已成功上传到后台。',
+        uploadFailedAlert: '上传失败，请检查网络或后台接口。'
+    };
+    var english = {
+        appName: 'Liveness',
+        mainTitleHtml: 'Face the screen<br>Follow the prompts',
+        preCheckBanner: 'Please pay attention when testing',
+        tipBrightLight: 'Need bright light',
+        tipNoCover: 'Do not cover your face',
+        tipNoHat: 'No hat',
+        tipNoFast: 'Do not move too fast',
+        loadingModels: 'Loading...',
+        startNow: 'Start',
+        initFailed: 'Initialization failed',
+        errorPrefix: 'Error: ',
+        errorTitle: 'Error',
+        countdowning: 'Counting down...',
+        countdownTip: 'Please make sure the face is within the circle, and the detection will start after the countdown is over',
+        livenessCheckTitle: 'Liveness Check',
+        instructionMouth: 'Please open your mouth',
+        instructionShakeLeft: 'Please turn your head slowly to the left',
+        instructionShakeRight: 'Please turn your head slowly to the right',
+        successTitle: 'Successful detection',
+        failureTitle: 'Detection failed, please try again',
+        retryBtn: 'Try again',
+        restartBtn: 'Restart',
+        faceDetected: 'Face detected',
+        noFaceDetected: 'No face detected',
+        completed: 'Completed',
+        failed: 'Failed',
+        cameraErrorPrefix: 'Camera access denied or error: ',
+        uploadingBestFace: 'Uploading best face...',
+        completedNoBestFace: 'Completed, but no best face captured.',
+        headTurnNeedBestFace: 'Action detected, looking for best frontal face...',
+        uploadSuccess: 'Upload success!',
+        uploadFailed: 'Upload failed: ',
+        uploadSuccessAlert: 'Face image uploaded successfully.',
+        uploadFailedAlert: 'Upload failed. Please check the network or backend API.'
+    };
+
+    var language = (new URLSearchParams(window.location.search).get('language') || 'cn').toLowerCase();
+    var dict = language === 'cn' ? china : english;
+    return dict[key] || english[key] || china[key] || key;
+}
+
+function applyLocale() {
+    document.title = getLocal('appName');
+
+    if (mainTitle) mainTitle.innerHTML = getLocal('mainTitleHtml');
+    if (preCheckBanner) preCheckBanner.innerText = getLocal('preCheckBanner');
+    if (startLivenessBtn) startLivenessBtn.innerText = startLivenessBtn.disabled ? getLocal('loadingModels') : getLocal('startNow');
+
+    const tipBrightLight = document.getElementById('tip-bright-light');
+    const tipNoCover = document.getElementById('tip-no-cover');
+    const tipNoHat = document.getElementById('tip-no-hat');
+    const tipNoFast = document.getElementById('tip-no-fast');
+    if (tipBrightLight) tipBrightLight.innerText = getLocal('tipBrightLight');
+    if (tipNoCover) tipNoCover.innerText = getLocal('tipNoCover');
+    if (tipNoHat) tipNoHat.innerText = getLocal('tipNoHat');
+    if (tipNoFast) tipNoFast.innerText = getLocal('tipNoFast');
+
+    const successTitle = document.getElementById('success-title');
+    const failureTitle = document.getElementById('failure-title');
+    if (successTitle) successTitle.innerText = getLocal('successTitle');
+    if (failureTitle) failureTitle.innerText = getLocal('failureTitle');
+    if (retryBtn) retryBtn.innerText = getLocal('retryBtn');
+    if (restartBtn) restartBtn.innerText = getLocal('restartBtn');
+
+    if (instructionEl) instructionEl.innerText = getLocal('instructionMouth');
+}
+
+
 if (retryBtn) {
     retryBtn.addEventListener('click', () => {
         if (livenessControls) livenessControls.style.display = 'block';
-        if (mainTitle) mainTitle.innerText = 'Liveness Check';
+        if (mainTitle) mainTitle.innerText = getLocal('livenessCheckTitle');
         isStartLiveness = true;
         startLivenessTest();
         startLivenessTimeout();

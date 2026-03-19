@@ -4,9 +4,9 @@
     <meta charset="UTF-8"/>
     <link rel="icon" type="image/svg+xml" href="/vite.svg"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Liveness Detection Demo</title>
-  <script type="module" crossorigin src="/assets/index-C3LWbO_O.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-Djnu_SX1.css">
+    <title>Liveness</title>
+    <script type="module" crossorigin src="./assets/index-CejSeV3X.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Djnu_SX1.css">
 </head>
 <body>
 <div id="app">
@@ -23,7 +23,8 @@
             </div>
             <div id="success-badge" style="display: none;">
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M20 6L9 17l-5-5" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20 6L9 17l-5-5" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"
+                          stroke-linejoin="round"/>
                 </svg>
             </div>
             <div id="failure-badge" style="display: none;">
@@ -40,19 +41,19 @@
             <div class="pre-check-tips" id="pre-check-tips">
                 <div class="tip">
                     <div class="tip-icon correct"></div>
-                    <div class="tip-text">Need bright light</div>
+                    <div class="tip-text" id="tip-bright-light">Need bright light</div>
                 </div>
                 <div class="tip">
                     <div class="tip-icon incorrect"></div>
-                    <div class="tip-text">Do not cover your face</div>
+                    <div class="tip-text" id="tip-no-cover">Do not cover your face</div>
                 </div>
                 <div class="tip">
                     <div class="tip-icon incorrect"></div>
-                    <div class="tip-text">No hat</div>
+                    <div class="tip-text" id="tip-no-hat">No hat</div>
                 </div>
                 <div class="tip">
                     <div class="tip-icon incorrect"></div>
-                    <div class="tip-text">Do not move too fast</div>
+                    <div class="tip-text" id="tip-no-fast">Do not move too fast</div>
                 </div>
             </div>
             <button id="start-liveness-btn" disabled>正在加载模型...</button>
@@ -70,10 +71,10 @@
             </div>
             <div id="instruction" class="pre-check-banner liveness-banner">Please open your mouth</div>
             <div id="success-screen" style="display: none;">
-                <div class="success-title">Successful detection</div>
+                <div class="success-title" id="success-title">Successful detection</div>
             </div>
             <div id="failure-screen" style="display: none;">
-                <div class="failure-title">Detection failed, please try again</div>
+                <div class="failure-title" id="failure-title">Detection failed, please try again</div>
                 <button id="retry-btn" type="button">Try again</button>
             </div>
             <ul id="checklist" style="display:none;">
@@ -84,9 +85,9 @@
             <button id="restart-btn" style="display: none;">Restart</button>
         </div>
     </div>
-    <div>
-        <img id="img_BestFace" alt="">
-    </div>
+    <!--    <div>-->
+    <!--        <img id="img_BestFace" alt="">-->
+    <!--    </div>-->
 </div>
 
 </body>
