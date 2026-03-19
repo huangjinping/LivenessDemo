@@ -9,7 +9,7 @@ const MODELS_PATH = './models';
 // 眨眼阈值：眼部纵横比 (EAR) 小于 0.3 时认为眼睛是闭合的
 const BLINK_THRESHOLD = 0.3;
 // 张嘴阈值：嘴部纵横比 (MAR) 大于 0.3 时认为嘴巴是张开的
-const MOUTH_OPEN_THRESHOLD = 0.3;
+const MOUTH_OPEN_THRESHOLD = 0.1;
 // 摇头阈值：角度（近似值）或偏差单位（目前逻辑中未使用此常量，而是用了相对位置判断）
 const HEAD_SHAKE_THRESHOLD = 15;
 
@@ -28,6 +28,7 @@ let isStartLiveness = false;
 let blinkCounter = 0;
 // 张嘴计数器，记录张嘴的帧数
 let mouthOpenCounter = 0;
+let mouthMarBaseline = 0;
 let headTurnLeftCounter = 0;
 let headTurnRightCounter = 0;
 // 摇头数据，记录摇头动作的时间戳
@@ -219,6 +220,7 @@ function resetMetrics() {
     blinkCounter = 0;
     // 重置张嘴计数
     mouthOpenCounter = 0;
+    mouthMarBaseline = 0;
     headTurnLeftCounter = 0;
     headTurnRightCounter = 0;
     // 重置摇头数据
@@ -381,10 +383,17 @@ function processLiveness(landmarks) {
     if (state === 'MOUTH') {
         const mouth = landmarks.getMouth();
         const mar = getMAR(mouth);
-        if (mar > MOUTH_OPEN_THRESHOLD) {
+        if (!mouthMarBaseline) {
+            mouthMarBaseline = mar;
+        } else if (mar < 0.2) {
+            mouthMarBaseline = mouthMarBaseline * 0.9 + mar * 0.1;
+        }
+
+        const dynamicThreshold = Math.max(MOUTH_OPEN_THRESHOLD, mouthMarBaseline + 0.06);
+
+        if (mar > dynamicThreshold) {
             mouthOpenCounter++;
-        } else {
-            if (mouthOpenCounter > 2) {
+            if (mouthOpenCounter >= 3) {
                 state = 'SHAKE_LEFT';
                 mouthOpenCounter = 0;
                 headTurnLeftCounter = 0;
@@ -392,6 +401,7 @@ function processLiveness(landmarks) {
                 updateUI('mouth');
                 return;
             }
+        } else {
             mouthOpenCounter = 0;
         }
         return;
